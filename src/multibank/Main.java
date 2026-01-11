@@ -1,8 +1,10 @@
 package multibank;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.Scanner;
 import multibank.model.*;
+import multibank.exception.*;
 
 public class Main {
 
@@ -37,70 +39,108 @@ public class Main {
             switch (choice) {
 
                 case 1: // ADD CUSTOMER
-                    System.out.print("Name: ");
-                    String name = sc.nextLine();
+                    try {
+                        System.out.print("Name: ");
+                        String name = sc.nextLine();
 
-                    System.out.print("Aadhaar (12 digits): ");
-                    String aadhaar = sc.nextLine();
-                    if (!aadhaar.matches("\\d{12}")) {
-                        System.out.println("Invalid Aadhaar!");
-                        break;
+                        System.out.print("Aadhaar (12 digits): ");
+                        String aadhaar = sc.nextLine();
+                        if (!aadhaar.matches("\\d{12}")) {
+                            throw new InvalidTransactionException("Invalid Aadhaar");
+                        }
+
+                        // check duplicate aadhaar
+                        for (Customer c : customers) {
+                            if (c.getAadhaar().equals(aadhaar)) {
+                                throw new InvalidTransactionException("Aadhaar already registered");
+                            }
+                        }
+
+                        System.out.print("DOB: ");
+                        String dob = sc.nextLine();
+
+                        System.out.print("Initial funding: ");
+                        double bal = sc.nextDouble();
+                        sc.nextLine();
+
+                        if (bal < 0) {
+                            throw new InvalidTransactionException("Initial funding must be non-negative");
+                        }
+
+                        Account acc = new Account(bal);
+                        Customer cust = new Customer(name, aadhaar, dob, acc);
+                        customers.add(cust);
+
+                        System.out.println("Customer added successfully!");
+                        System.out.println("Account Number: " + acc.getAccountNo());
+                    } catch (InvalidTransactionException e) {
+                        System.out.println("Add Customer Error: " + e.getMessage());
                     }
-
-                    System.out.print("DOB: ");
-                    String dob = sc.nextLine();
-
-                    System.out.print("Set password: ");
-                    String pwd = sc.nextLine();
-
-                    System.out.print("Initial funding: ");
-                    double bal = sc.nextDouble();
-
-                    Account acc = new Account(bal);
-                    Customer cust = new Customer(name, aadhaar, dob, pwd, acc);
-                    customers.add(cust);
-
-                    System.out.println("Customer added successfully!");
-                    System.out.println("Account Number: " + acc.getAccountNo());
                     break;
 
                 case 2: // DELETE CUSTOMER
-                    System.out.print("Account number: ");
-                    int delAcc = sc.nextInt();
+                    if (customers.isEmpty()) {
+                        System.out.println("No customers available to delete");
+                        break;
+                    }
+                    try {
+                        System.out.print("Account number: ");
+                        int delAcc = sc.nextInt();
+                        sc.nextLine();
 
-                    customers.removeIf(c ->
-                            c.getAccount().getAccountNo() == delAcc);
-                    System.out.println("Customer deleted (if existed)");
+                        boolean removed = false;
+                        Iterator<Customer> it = customers.iterator();
+                        while (it.hasNext()) {
+                            Customer c = it.next();
+                            if (c.getAccount().getAccountNo() == delAcc) {
+                                it.remove();
+                                removed = true;
+                                break;
+                            }
+                        }
+
+                        if (!removed) {
+                            throw new InvalidTransactionException("Account not found");
+                        }
+
+                        System.out.println("Customer deleted successfully");
+                    } catch (InvalidTransactionException e) {
+                        System.out.println("Delete Error: " + e.getMessage());
+                    }
                     break;
 
                 case 3: // WITHDRAW
                     Customer wc = findCustomer(customers, sc);
                     if (wc == null) break;
 
-                    System.out.print("Enter password: ");
-                    if (!wc.verifyPassword(sc.nextLine())) {
-                        System.out.println("Wrong password!");
-                        break;
-                    }
-
                     System.out.print("Amount: ");
-                    wc.getAccount().withdraw(sc.nextDouble());
-                    System.out.println("Withdrawal successful");
+                    double wAmt = sc.nextDouble();
+                    try {
+                        wc.getAccount().withdraw(wAmt);
+                        System.out.println("Withdrawal successful");
+                    } catch (OverdraftException e) {
+                        System.out.println("Overdraft Error: " + e.getMessage());
+                    } catch (InvalidTransactionException e) {
+                        System.out.println("Invalid Transaction: " + e.getMessage());
+                    } catch (AccountLockedException e) {
+                        System.out.println("Account Error: " + e.getMessage());
+                    }
                     break;
 
                 case 4: // DEPOSIT
                     Customer dc = findCustomer(customers, sc);
                     if (dc == null) break;
 
-                    System.out.print("Enter password: ");
-                    if (!dc.verifyPassword(sc.nextLine())) {
-                        System.out.println("Wrong password!");
-                        break;
-                    }
-
                     System.out.print("Amount: ");
-                    dc.getAccount().deposit(sc.nextDouble());
-                    System.out.println("Deposit successful");
+                    double dAmt = sc.nextDouble();
+                    try {
+                        dc.getAccount().deposit(dAmt);
+                        System.out.println("Deposit successful");
+                    } catch (InvalidTransactionException e) {
+                        System.out.println("Invalid Transaction: " + e.getMessage());
+                    } catch (AccountLockedException e) {
+                        System.out.println("Account Error: " + e.getMessage());
+                    }
                     break;
 
                 case 5: // LOCK / UNLOCK

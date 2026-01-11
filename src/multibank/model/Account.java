@@ -1,5 +1,7 @@
 package multibank.model;
 
+import multibank.exception.*;
+
 public class Account {
 
     private static int accCounter = 1000;
@@ -33,11 +35,26 @@ public class Account {
         locked = false;
     }
 
-    public void deposit(double amt) {
+    public void deposit(double amt) throws InvalidTransactionException, AccountLockedException {
+        if (locked) {
+            throw new AccountLockedException("Account is locked");
+        }
+        if (amt <= 0) {
+            throw new InvalidTransactionException("Deposit amount must be positive");
+        }
         balance += amt;
     }
 
-    public void withdraw(double amt) {
+    public void withdraw(double amt) throws OverdraftException, InvalidTransactionException, AccountLockedException {
+        if (locked) {
+            throw new AccountLockedException("Account is locked");
+        }
+        if (amt <= 0) {
+            throw new InvalidTransactionException("Withdrawal amount must be positive");
+        }
+        if (amt > balance) {
+            throw new OverdraftException("Insufficient funds");
+        }
         balance -= amt;
     }
 }
